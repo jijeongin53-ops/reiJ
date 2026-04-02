@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지정인 - Link in Bio</title>
+    <title>지정인 - Link in ReiJ</title>
     <meta name="description" content="지정인 대표이사 - AI솔루션크리에이터, 관광콘텐츠기획자, 작가, 마이스전문가, 컨설턴트">
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -321,7 +321,7 @@
     <div class="container">
         <!-- 프로필 -->
         <div class="profile">
-            <img src="profile.jpg" alt="지정인 대표이사 프로필 사진">
+            <img src="profile.jpg.png" alt="지정인 대표이사 프로필 사진">
             <h1>지정인</h1>
             <p class="role">대표이사</p>
             <div class="tags">
@@ -384,7 +384,20 @@
         // 설정값
         // ============================
         const SHEET_ID = '1AepUTO6yvs1DlRz8P4_J1aTqzghp6C19VaraK5rGJ1g';
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyvVxaTXEseNqyzPzEgA70HWqG6Bd79HnYOx4JaiI72Jkw9iwOTItthYwFiulhrw0Q-/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDsy6bvjI9iyXDO0g_6muC8uPFEj7o_AjO1SuHhZvP96E2Tmk0vDpzlddjimDNlEhY/exec';
+
+        // ============================
+        // Image GET 요청 (CORS 우회, 리다이렉트 자동 처리)
+        // ============================
+        function submitViaImage(data) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve();
+                img.onerror = () => resolve(); // 오류여도 resolve (응답 읽기 불가)
+                img.src = SCRIPT_URL + '?' + new URLSearchParams(data).toString();
+                setTimeout(resolve, 4000); // 최대 4초 대기
+            });
+        }
 
         // ============================
         // 링크 로드 (Google Sheets)
@@ -408,28 +421,38 @@
                     throw new Error('데이터 없음');
                 }
 
-                container.innerHTML = '';
-
+                // 유효한 링크만 수집 (URL이 있어야 함)
+                const validLinks = [];
                 rows.forEach(row => {
                     const title     = row.c[0]?.v || '';
                     const desc      = row.c[1]?.v || '';
-                    const href      = row.c[2]?.v || '#';
+                    const href      = row.c[2]?.v || '';
                     const highlight = row.c[3]?.v === true || String(row.c[3]?.v).toUpperCase() === 'TRUE';
                     const visible   = row.c[4]?.v === true || String(row.c[4]?.v).toUpperCase() === 'TRUE';
 
-                    if (!visible || !title) return;
-
-                    const a = document.createElement('a');
-                    a.href = href;
-                    a.target = '_blank';
-                    a.rel = 'noopener noreferrer';
-                    a.className = 'link-item' + (highlight ? ' highlight' : '');
-                    a.innerHTML = `
-                        <span class="link-title">${title}</span>
-                        <span class="link-desc">${desc}</span>
-                    `;
-                    container.appendChild(a);
+                    // URL이 비어있거나 visible이 아닌 경우 제외
+                    if (!visible || !title || !href || href === '#') return;
+                    validLinks.push({ title, desc, href, highlight });
                 });
+
+                // 유효한 링크가 있을 때만 기본값을 교체
+                if (validLinks.length > 0) {
+                    container.innerHTML = '';
+                    validLinks.forEach(({ title, desc, href, highlight }) => {
+                        const a = document.createElement('a');
+                        a.href = href;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        a.className = 'link-item' + (highlight ? ' highlight' : '');
+                        a.innerHTML = `
+                            <span class="link-title">${title}</span>
+                            <span class="link-desc">${desc}</span>
+                        `;
+                        container.appendChild(a);
+                    });
+                }
+                // 유효한 링크가 없으면 기본 HTML 유지 (아무것도 안 함)
+
 
             } catch (err) {
                 // 로드 실패 시 기본 링크 표시
@@ -472,12 +495,7 @@
             msg.style.display = 'none';
 
             try {
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, message })
-                });
+                await submitViaImage({ name, email, message });
 
                 // no-cors 모드에서는 응답 확인 불가 → 성공으로 처리
                 msg.className = 'form-msg success';
